@@ -3,13 +3,12 @@ package main
 import (
 	"log"
 	"net/http"
+
+	"github.com/mbrunoon/bootdev-chirpy/internal/application"
 )
 
 func main() {
-	mux := http.NewServeMux()
-
-	mux.Handle("/", http.FileServer(http.Dir("./web/")))
-	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("./assets/"))))
+	mux := application.NewRouter()
 
 	srv := &http.Server{
 		Addr:    ":8080",
