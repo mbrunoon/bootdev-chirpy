@@ -12,9 +12,17 @@ func HealthzHandler(res http.ResponseWriter, req *http.Request) {
 }
 
 func (c *apiConfig) MetricsHandler(res http.ResponseWriter, req *http.Request) {
-	res.Header().Set("Content-Type", "text/plain; charset=uft-8")
+	res.Header().Set("Content-Type", "text/html; charset=uft-8")
 	res.WriteHeader(http.StatusOK)
-	res.Write([]byte(fmt.Sprintf("Hits: %d", c.fileserverHits.Load())))
+
+	res.Write([]byte(fmt.Sprintf(`
+		<html>
+			<body>
+				<h1>Welcome, Chirpy Admin</h1>
+				<p>Chirpy has been visited %d times!</p>
+			</body>
+		</html>`,
+		c.fileserverHits.Load())))
 }
 
 func (c *apiConfig) ResetMetricsHandler(res http.ResponseWriter, req *http.Request) {
