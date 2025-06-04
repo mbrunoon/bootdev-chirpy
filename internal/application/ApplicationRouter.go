@@ -32,9 +32,10 @@ func NewRouter() *mux.Router {
 		),
 	)
 
-	mux.HandleFunc("/healthz", HealthzHandler)
-	mux.HandleFunc("/metrics", cfg.MetricsHandler)
-	mux.HandleFunc("/reset", cfg.ResetMetricsHandler)
+	apiRouter := mux.PathPrefix("/api").Subrouter()
+	apiRouter.HandleFunc("/healthz", HealthzHandler).Methods("GET")
+	apiRouter.HandleFunc("/metrics", cfg.MetricsHandler).Methods("GET")
+	apiRouter.HandleFunc("/reset", cfg.ResetMetricsHandler).Methods("POST")
 
 	return mux
 }

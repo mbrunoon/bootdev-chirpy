@@ -27,7 +27,7 @@ func TestHealthzHandler(t *testing.T) {
 			name:           "GET /healthz 200",
 			method:         http.MethodGet,
 			expectedStatus: http.StatusOK,
-			expectedBody:   `{"status": "ok"}`,
+			expectedBody:   `{"status": "OK"}`,
 		},
 	}
 
