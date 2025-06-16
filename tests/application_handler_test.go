@@ -6,13 +6,12 @@ import (
 
 	"github.com/magiconair/properties/assert"
 	"github.com/mbrunoon/bootdev-chirpy/internal/application"
-	helpers "github.com/mbrunoon/bootdev-chirpy/tests"
 )
 
 func TestHealthzHandler(t *testing.T) {
 	handler := http.HandlerFunc(application.HealthzHandler)
 
-	opts := helpers.RequestOptions{
+	opts := RequestOptions{
 		Method: http.MethodGet,
 		Path:   "/healthz",
 	}
@@ -33,7 +32,7 @@ func TestHealthzHandler(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			rr := helpers.MakeRequest(t, handler, opts)
+			rr := MakeRequest(t, handler, opts)
 
 			assert.Equal(t, tc.expectedStatus, rr.Code)
 			assert.Equal(t, tc.expectedBody, rr.Body.String())

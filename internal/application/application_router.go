@@ -34,6 +34,7 @@ func NewRouter() *mux.Router {
 
 	apiRouter := mux.PathPrefix("/api").Subrouter()
 	apiRouter.HandleFunc("/healthz", HealthzHandler).Methods("GET")
+	apiRouter.HandleFunc("/validate_chirp", ValidateChirpHandler).Methods("POST")
 
 	adminRouter := mux.PathPrefix("/admin").Subrouter()
 	adminRouter.HandleFunc("/metrics", cfg.MetricsHandler).Methods("GET")
