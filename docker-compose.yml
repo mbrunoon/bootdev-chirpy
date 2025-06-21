@@ -1,16 +1,14 @@
 services:
   db:
     image: postgres:16
-    container_name: chirpy_db
+    container_name: postgres
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: chirpy
-      POSTGRES_HOST_AUTH_METHOD: trust
-      POSTGRES_LISTEN_ADDRESSES: "*"
+      POSTGRES_USER: chirpy_user
+      POSTGRES_PASSWORD: chirpy_pass
+      POSTGRES_DB: chirpy_db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/magiconair/properties/assert"
 	"github.com/mbrunoon/bootdev-chirpy/internal/application"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestHealthzHandler(t *testing.T) {

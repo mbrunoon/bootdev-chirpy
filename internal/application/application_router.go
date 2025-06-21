@@ -1,6 +1,7 @@
 package application
 
 import (
+	"database/sql"
 	"net/http"
 	"sync/atomic"
 
@@ -9,6 +10,7 @@ import (
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	queries        *sql.DB
 }
 
 func (c *apiConfig) middlewareMetricsInt(next http.Handler) http.Handler {
@@ -18,9 +20,12 @@ func (c *apiConfig) middlewareMetricsInt(next http.Handler) http.Handler {
 	})
 }
 
-func NewRouter() *mux.Router {
+func NewRouter(db *sql.DB) *mux.Router {
 	mux := mux.NewRouter()
-	cfg := apiConfig{}
+
+	cfg := apiConfig{
+		queries: db,
+	}
 
 	mux.Handle("/app", cfg.middlewareMetricsInt(
 		http.StripPrefix("/app", http.FileServer(http.Dir("./web/"))),
