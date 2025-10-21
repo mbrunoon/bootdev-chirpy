@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/joho/godotenv"
 	"github.com/mbrunoon/bootdev-chirpy/helpers"
 	"github.com/mbrunoon/bootdev-chirpy/internal/database"
 
@@ -18,6 +18,7 @@ import (
 )
 
 func main() {
+	godotenv.Load()
 
 	dbURL := os.Getenv("DB_URL")
 	db, err := sql.Open("postgres", dbURL)
@@ -28,17 +29,22 @@ func main() {
 	}
 
 	log.Printf("DB Connected...")
+	log.Printf("Plataform: %v", os.Getenv("PLATFORM"))
 
 	mux := http.NewServeMux()
 	apiCfg := apiConfig{
-		DB: database.New(db),
+		DB:       database.New(db),
+		platform: os.Getenv("PLATFORM"),
 	}
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(".")))))
 	mux.Handle("/app/assets/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(".")))))
 
 	mux.HandleFunc("GET /api/healthz", healthzController)
-	mux.HandleFunc("POST /api/validate_chirp", validateChirpController)
+	mux.HandleFunc("POST /api/users", apiCfg.CreateUserController)
+	mux.HandleFunc("POST /api/chirps", apiCfg.CreateChirpsController)
+	mux.HandleFunc("GET /api/chirps", apiCfg.IndexChirpsController)
+	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.ShowChirpController)
 
 	mux.HandleFunc("GET /admin/metrics", apiCfg.metricsController)
 	mux.HandleFunc("POST /admin/reset", apiCfg.resetController)
@@ -54,6 +60,7 @@ func main() {
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	DB             *database.Queries
+	platform       string
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -77,7 +84,15 @@ func (cfg *apiConfig) metricsController(res http.ResponseWriter, req *http.Reque
 }
 
 func (cfg *apiConfig) resetController(res http.ResponseWriter, req *http.Request) {
+	if cfg.platform != "dev" {
+		helpers.RespondWithError(res, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	cfg.DB.DeleteAllUsers(req.Context())
+	cfg.DB.DeleteAllChirps(req.Context())
 	cfg.fileserverHits.Store(0)
+
 	res.Header().Add("Content-Type", "text/plain; charset=utf-8")
 	res.WriteHeader(http.StatusOK)
 }
@@ -88,31 +103,12 @@ func healthzController(res http.ResponseWriter, req *http.Request) {
 	res.Write([]byte(http.StatusText(http.StatusOK)))
 }
 
-func validateChirpController(res http.ResponseWriter, req *http.Request) {
-	res.Header().Add("Content-Type", "application/json")
-
-	type parameters struct {
-		Body string `json:"body"`
+func validateAndCleanChirp(chirp string) (bool, string) {
+	if len(chirp) > 140 {
+		return false, chirp
 	}
 
-	type responseValid struct {
-		CleanedBody string `json:"cleaned_body"`
-	}
-
-	decoder := json.NewDecoder(req.Body)
-	params := parameters{}
-
-	err := decoder.Decode(&params)
-	if err != nil {
-		helpers.RespondWithError(res, http.StatusInternalServerError, fmt.Sprintf("Error decoding %s", err))
-	}
-
-	if len(params.Body) > 140 {
-		helpers.RespondWithError(res, 400, "Chirp is too long")
-		return
-	}
-
-	helpers.RespondWithJson(res, http.StatusOK, responseValid{CleanedBody: cleanBody(params.Body)})
+	return true, cleanBody(chirp)
 }
 
 func cleanBody(body string) string {

@@ -1,0 +1,16 @@
+-- +goose Up
+-- +goose StatementBegin
+CREATE TABLE chirps (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    body TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now(),
+    user_id UUID NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+DROP TABLE chirps;
+-- +goose StatementEnd
