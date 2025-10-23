@@ -19,8 +19,9 @@ type Chirp struct {
 }
 
 type User struct {
-	ID        uuid.UUID
-	Email     sql.NullString
-	CreatedAt sql.NullTime
-	UpdatedAt sql.NullTime
+	ID             uuid.UUID
+	Email          sql.NullString
+	CreatedAt      sql.NullTime
+	UpdatedAt      sql.NullTime
+	HashedPassword string
 }

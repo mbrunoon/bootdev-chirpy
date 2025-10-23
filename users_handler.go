@@ -5,22 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/mbrunoon/bootdev-chirpy/helpers"
+	"github.com/mbrunoon/bootdev-chirpy/internal/auth"
+	"github.com/mbrunoon/bootdev-chirpy/internal/database"
 )
-
-type UserResponse struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
-}
 
 func (cfg *apiConfig) CreateUserController(res http.ResponseWriter, req *http.Request) {
 	type parameters struct {
-		Email string `json:"email"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 
 	decoder := json.NewDecoder(req.Body)
@@ -32,17 +26,23 @@ func (cfg *apiConfig) CreateUserController(res http.ResponseWriter, req *http.Re
 		return
 	}
 
-	user, err := cfg.DB.CreateUser(req.Context(), sql.NullString{String: params.Email, Valid: true})
+	hashedPass, err := auth.HashPassword(params.Password)
+	if err != nil {
+		helpers.RespondWithError(res, http.StatusUnprocessableEntity, fmt.Sprintf("Password Error: %v", err))
+		return
+	}
+
+	userParam := database.CreateUserParams{
+		Email:          sql.NullString{String: params.Email, Valid: true},
+		HashedPassword: hashedPass,
+	}
+
+	user, err := cfg.DB.CreateUser(req.Context(), userParam)
 	if err != nil {
 		helpers.RespondWithError(res, http.StatusUnprocessableEntity, fmt.Sprintf("Error create user: %v", err))
 		return
 	}
 
-	helpers.RespondWithJson(res, http.StatusCreated, UserResponse{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt.Time,
-		UpdatedAt: user.UpdatedAt.Time,
-		Email:     user.Email.String,
-	})
+	helpers.RespondWithJson(res, http.StatusCreated, helpers.MapUser(user))
 
 }
