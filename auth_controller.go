@@ -6,14 +6,22 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/mbrunoon/bootdev-chirpy/helpers"
 	"github.com/mbrunoon/bootdev-chirpy/internal/auth"
 )
 
 type loginParams struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email            string `json:"email"`
+	Password         string `json:"password"`
+	ExpiresInSeconds int    `json:"expires_in_seconds,omitempty"`
+}
+
+type loginResponse struct {
+	User         helpers.UserMap
+	Token        string `json:"token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 func (cfg *apiConfig) LoginAuthController(res http.ResponseWriter, req *http.Request) {
@@ -42,12 +50,31 @@ func (cfg *apiConfig) LoginAuthController(res http.ResponseWriter, req *http.Req
 		return
 	}
 
+	expirationTime := time.Hour
+	if params.ExpiresInSeconds > 0 && params.ExpiresInSeconds < 3600 {
+		expirationTime = time.Duration(params.ExpiresInSeconds) * time.Second
+	}
+
+	accessToken, err := auth.MakeJWT(
+		user.ID,
+		cfg.SecretToken,
+		expirationTime,
+	)
+
+	if err != nil {
+		helpers.RespondWithError(res, http.StatusInternalServerError, fmt.Sprintf("Fail to create JWT: %v", err))
+		return
+	}
+
 	if !match {
 		returnAuthError(res)
 		return
 	}
 
-	helpers.RespondWithJson(res, http.StatusOK, helpers.MapUser(user))
+	helpers.RespondWithJson(res, http.StatusOK, loginResponse{
+		User:  helpers.MapUser(user),
+		Token: accessToken,
+	})
 }
 
 func returnAuthError(res http.ResponseWriter) {

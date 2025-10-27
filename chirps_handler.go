@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mbrunoon/bootdev-chirpy/helpers"
+	"github.com/mbrunoon/bootdev-chirpy/internal/auth"
 	"github.com/mbrunoon/bootdev-chirpy/internal/database"
 )
 
@@ -26,29 +27,43 @@ type chirpResponse struct {
 }
 
 func (cfg *apiConfig) CreateChirpsController(res http.ResponseWriter, req *http.Request) {
-	decoder := json.NewDecoder(req.Body)
-	params := chirpMap{}
-
-	err := decoder.Decode(&params)
+	token, err := auth.GetBearerToken(req.Header)
 	if err != nil {
-		helpers.RespondWithError(res, http.StatusBadRequest, fmt.Sprintf("Error decoding chirpParams: %v", err))
+		helpers.RespondWithError(res, http.StatusUnauthorized, err.Error())
+		return
 	}
 
-	bodyIsValid, cleanBody := validateAndCleanChirp(params.Body)
-	if !bodyIsValid {
+	userID, err := auth.ValidateJWT(token, cfg.SecretToken)
+	if err != nil {
+		helpers.RespondWithError(res, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	var params struct {
+		Body string `json:"body"`
+	}
+
+	if err := json.NewDecoder(req.Body).Decode(&params); err != nil {
+		helpers.RespondWithError(res, http.StatusBadRequest, fmt.Sprintf("Error decoding body: %v", err))
+		return
+	}
+
+	ok, clean := validateAndCleanChirp(params.Body)
+	if !ok {
 		helpers.RespondWithError(res, http.StatusUnprocessableEntity, "Chirp must be less than 140 chars")
 		return
 	}
 
-	newChirp, err := cfg.DB.CreateChirp(req.Context(), database.CreateChirpParams{Body: cleanBody, UserID: uuid.MustParse(params.UserID.String())})
-
+	newChirp, err := cfg.DB.CreateChirp(req.Context(), database.CreateChirpParams{
+		Body:   clean,
+		UserID: userID,
+	})
 	if err != nil {
-		helpers.RespondWithError(res, http.StatusUnprocessableEntity, fmt.Sprintf("Erro on create new chirp: %v", err))
+		helpers.RespondWithError(res, http.StatusUnprocessableEntity, fmt.Sprintf("Error creating chirp: %v", err))
+		return
 	}
 
-	newChirpMapped := mapChirp(newChirp)
-
-	helpers.RespondWithJson(res, http.StatusCreated, newChirpMapped)
+	helpers.RespondWithJson(res, http.StatusCreated, mapChirp(newChirp))
 }
 
 func (cfg *apiConfig) IndexChirpsController(res http.ResponseWriter, req *http.Request) {

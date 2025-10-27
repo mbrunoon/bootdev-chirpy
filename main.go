@@ -17,6 +17,13 @@ import (
 	_ "github.com/lib/pq"
 )
 
+type apiConfig struct {
+	fileserverHits atomic.Int32
+	DB             *database.Queries
+	platform       string
+	SecretToken    string
+}
+
 func main() {
 	godotenv.Load()
 
@@ -33,8 +40,9 @@ func main() {
 
 	mux := http.NewServeMux()
 	apiCfg := apiConfig{
-		DB:       database.New(db),
-		platform: os.Getenv("PLATFORM"),
+		DB:          database.New(db),
+		platform:    os.Getenv("PLATFORM"),
+		SecretToken: os.Getenv("SECRET_TOKEN"),
 	}
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(".")))))
@@ -57,12 +65,6 @@ func main() {
 	}
 
 	log.Fatal(server.ListenAndServe())
-}
-
-type apiConfig struct {
-	fileserverHits atomic.Int32
-	DB             *database.Queries
-	platform       string
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
