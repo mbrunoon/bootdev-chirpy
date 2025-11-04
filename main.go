@@ -55,6 +55,8 @@ func main() {
 	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.ShowChirpController)
 
 	mux.HandleFunc("POST /api/login", apiCfg.LoginAuthController)
+	mux.HandleFunc("POST /api/refresh", apiCfg.RefreshTokenController)
+	mux.HandleFunc("POST /api/revoke", apiCfg.revokeController)
 
 	mux.HandleFunc("GET /admin/metrics", apiCfg.metricsController)
 	mux.HandleFunc("POST /admin/reset", apiCfg.resetController)

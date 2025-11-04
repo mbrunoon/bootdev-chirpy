@@ -10,12 +10,12 @@ import (
 
 	"github.com/mbrunoon/bootdev-chirpy/helpers"
 	"github.com/mbrunoon/bootdev-chirpy/internal/auth"
+	"github.com/mbrunoon/bootdev-chirpy/internal/database"
 )
 
 type loginParams struct {
-	Email            string `json:"email"`
-	Password         string `json:"password"`
-	ExpiresInSeconds int    `json:"expires_in_seconds,omitempty"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 type loginResponse struct {
@@ -44,21 +44,21 @@ func (cfg *apiConfig) LoginAuthController(res http.ResponseWriter, req *http.Req
 
 	match, err := auth.CheckPasswordHash(params.Password, user.HashedPassword)
 
+	if !match {
+		returnAuthError(res)
+		return
+	}
+
 	if err != nil {
 		log.Fatalf(`[auth.CheckPasswordHash(params.Password, user.HashedPassword)]: %v`, err)
 		returnAuthError(res)
 		return
 	}
 
-	expirationTime := time.Hour
-	if params.ExpiresInSeconds > 0 && params.ExpiresInSeconds < 3600 {
-		expirationTime = time.Duration(params.ExpiresInSeconds) * time.Second
-	}
-
 	accessToken, err := auth.MakeJWT(
 		user.ID,
 		cfg.SecretToken,
-		expirationTime,
+		time.Hour,
 	)
 
 	if err != nil {
@@ -66,15 +66,67 @@ func (cfg *apiConfig) LoginAuthController(res http.ResponseWriter, req *http.Req
 		return
 	}
 
-	if !match {
-		returnAuthError(res)
-		return
+	token := auth.MakeRefreshToken()
+
+	_, err = cfg.DB.CreateRefreshToken(req.Context(), database.CreateRefreshTokenParams{
+		Token:     token,
+		UserID:    user.ID,
+		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 60),
+	})
+
+	if err != nil {
+		helpers.RespondWithError(res, http.StatusInternalServerError, fmt.Sprintf("Error on create Refresh Token: %v", err))
 	}
 
 	helpers.RespondWithJson(res, http.StatusOK, loginResponse{
-		User:  helpers.MapUser(user),
-		Token: accessToken,
+		User:         helpers.MapUser(user),
+		Token:        accessToken,
+		RefreshToken: token,
 	})
+}
+
+func (cfg *apiConfig) RefreshTokenController(res http.ResponseWriter, req *http.Request) {
+
+	token, err := auth.GetBearerToken(req.Header)
+
+	if err != nil {
+		helpers.RespondWithError(res, http.StatusBadRequest, fmt.Sprint(err))
+		return
+	}
+
+	user, err := cfg.DB.GetUserFromRefreshToken(req.Context(), token)
+	if err != nil {
+		helpers.RespondWithError(res, http.StatusUnauthorized, "Invalid Token")
+		return
+	}
+
+	accessToken, err := auth.MakeJWT(user.ID, cfg.SecretToken, time.Hour)
+	if err != nil {
+		helpers.RespondWithError(res, http.StatusUnauthorized, fmt.Sprintf("Error on create access token: %v", err))
+		return
+	}
+
+	type refreshTokenResponse struct {
+		Token string `json:"token"`
+	}
+
+	helpers.RespondWithJson(res, http.StatusOK, refreshTokenResponse{Token: accessToken})
+}
+
+func (cfg *apiConfig) revokeController(res http.ResponseWriter, req *http.Request) {
+	refreshToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		helpers.RespondWithError(res, http.StatusUnauthorized, "Token not found")
+		return
+	}
+
+	_, err = cfg.DB.RevokeRefreshToken(req.Context(), refreshToken)
+	if err != nil {
+		helpers.RespondWithError(res, http.StatusInternalServerError, "error on revoke token")
+		return
+	}
+
+	helpers.RespondWithJson(res, http.StatusNoContent, "")
 }
 
 func returnAuthError(res http.ResponseWriter) {
