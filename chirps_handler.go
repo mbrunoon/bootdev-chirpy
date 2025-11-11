@@ -99,6 +99,46 @@ func (cfg *apiConfig) ShowChirpController(res http.ResponseWriter, req *http.Req
 	helpers.RespondWithJson(res, http.StatusOK, mapChirp(chirp))
 }
 
+func (cfg *apiConfig) DeleteChirpController(res http.ResponseWriter, req *http.Request) {
+	idParam, err := uuid.Parse(req.PathValue("chirpID"))
+	if err != nil {
+		helpers.RespondWithError(res, http.StatusBadRequest, "Invalid Chirp Format")
+		return
+	}
+
+	token, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		helpers.RespondWithError(res, http.StatusUnauthorized, "Invalid Token")
+		return
+	}
+
+	userID, err := auth.ValidateJWT(token, cfg.SecretToken)
+	if err != nil {
+		helpers.RespondWithError(res, http.StatusUnauthorized, "Invalid Token")
+		return
+	}
+
+	chirp, err := cfg.DB.FindChirp(req.Context(), idParam)
+
+	if err == sql.ErrNoRows {
+		helpers.RespondWithError(res, http.StatusNotFound, "chirp not found")
+		return
+	}
+
+	if userID != chirp.UserID {
+		helpers.RespondWithError(res, http.StatusForbidden, "You can only delete your chirps")
+		return
+	}
+
+	err = cfg.DB.DeleteChirp(req.Context(), idParam)
+	if err != nil {
+		helpers.RespondWithError(res, http.StatusInternalServerError, "Chirp not deleted")
+		return
+	}
+
+	helpers.RespondWithJson(res, http.StatusNoContent, "")
+}
+
 /* private */
 
 func mapChirp(dbChirp database.Chirp) chirpResponse {

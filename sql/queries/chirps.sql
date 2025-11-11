@@ -11,6 +11,10 @@ ORDER BY created_at ASC;
 -- name: DeleteAllChirps :exec
 DELETE FROM chirps;
 
+-- name: DeleteChirp :exec
+DELETE FROM chirps
+WHERE id = $1;
+
 -- name: FindChirp :one
 SELECT *
 FROM chirps
