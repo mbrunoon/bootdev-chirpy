@@ -15,7 +15,7 @@ import (
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, hashed_password)
 VALUES ($1, $2)
-RETURNING id, email, created_at, updated_at, hashed_password
+RETURNING id, email, created_at, updated_at, hashed_password, is_chirpy_red
 `
 
 type CreateUserParams struct {
@@ -32,6 +32,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.HashedPassword,
+		&i.IsChirpyRed,
 	)
 	return i, err
 }
@@ -46,7 +47,7 @@ func (q *Queries) DeleteAllUsers(ctx context.Context) error {
 }
 
 const findUserByEmail = `-- name: FindUserByEmail :one
-SELECT id, email, created_at, updated_at, hashed_password 
+SELECT id, email, created_at, updated_at, hashed_password, is_chirpy_red 
 FROM users
 WHERE email = $1
 LIMIT 1
@@ -61,15 +62,40 @@ func (q *Queries) FindUserByEmail(ctx context.Context, email sql.NullString) (Us
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.HashedPassword,
+		&i.IsChirpyRed,
+	)
+	return i, err
+}
+
+const findUserByID = `-- name: FindUserByID :one
+SELECT id, email, created_at, updated_at, hashed_password, is_chirpy_red 
+FROM users
+WHERE ID = $1
+LIMIT 1
+`
+
+func (q *Queries) FindUserByID(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.db.QueryRowContext(ctx, findUserByID, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.HashedPassword,
+		&i.IsChirpyRed,
 	)
 	return i, err
 }
 
 const updateUser = `-- name: UpdateUser :one
 UPDATE users
-SET email = $2, hashed_password = $3
+SET 
+    email = $2,
+    hashed_password = $3,
+    updated_at = NOW()
 WHERE id = $1
-RETURNING id, email, created_at, updated_at, hashed_password
+RETURNING id, email, created_at, updated_at, hashed_password, is_chirpy_red
 `
 
 type UpdateUserParams struct {
@@ -87,6 +113,35 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.HashedPassword,
+		&i.IsChirpyRed,
+	)
+	return i, err
+}
+
+const updateUserToRed = `-- name: UpdateUserToRed :one
+UPDATE users
+SET 
+    is_chirpy_red = $2,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, email, created_at, updated_at, hashed_password, is_chirpy_red
+`
+
+type UpdateUserToRedParams struct {
+	ID          uuid.UUID
+	IsChirpyRed sql.NullBool
+}
+
+func (q *Queries) UpdateUserToRed(ctx context.Context, arg UpdateUserToRedParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, updateUserToRed, arg.ID, arg.IsChirpyRed)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.HashedPassword,
+		&i.IsChirpyRed,
 	)
 	return i, err
 }

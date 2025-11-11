@@ -19,7 +19,7 @@ type loginParams struct {
 }
 
 type loginResponse struct {
-	User         helpers.UserMap
+	helpers.UserMap
 	Token        string `json:"token"`
 	RefreshToken string `json:"refresh_token"`
 }
@@ -79,7 +79,7 @@ func (cfg *apiConfig) LoginAuthController(res http.ResponseWriter, req *http.Req
 	}
 
 	helpers.RespondWithJson(res, http.StatusOK, loginResponse{
-		User:         helpers.MapUser(user),
+		UserMap:      helpers.MapUser(user),
 		Token:        accessToken,
 		RefreshToken: token,
 	})

@@ -3,7 +3,10 @@ package auth
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"log"
+	"net/http"
+	"strings"
 
 	"github.com/alexedwards/argon2id"
 )
@@ -34,4 +37,19 @@ func MakeRefreshToken() string {
 	rand.Read(key)
 
 	return hex.EncodeToString(key)
+}
+
+func GetAPIKey(headers http.Header) (string, error) {
+	stringKey := headers.Get("Authorization")
+
+	if stringKey == "" {
+		return "", fmt.Errorf("key no found")
+	}
+
+	splitedKey := strings.Split(stringKey, " ")
+	if len(splitedKey) != 2 || splitedKey[0] != "ApiKey" {
+		return "", fmt.Errorf("malformed ApiKey token")
+	}
+
+	return splitedKey[1], nil
 }

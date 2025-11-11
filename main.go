@@ -22,6 +22,7 @@ type apiConfig struct {
 	DB             *database.Queries
 	platform       string
 	SecretToken    string
+	PolkaKey       string
 }
 
 func main() {
@@ -43,6 +44,7 @@ func main() {
 		DB:          database.New(db),
 		platform:    os.Getenv("PLATFORM"),
 		SecretToken: os.Getenv("SECRET_TOKEN"),
+		PolkaKey:    os.Getenv("POLKA_KEY"),
 	}
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(".")))))
@@ -55,6 +57,8 @@ func main() {
 	mux.HandleFunc("GET /api/chirps", apiCfg.IndexChirpsController)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.ShowChirpController)
 	mux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.DeleteChirpController)
+
+	mux.HandleFunc("POST /api/polka/webhooks", apiCfg.PolkaUserEventController)
 
 	mux.HandleFunc("POST /api/login", apiCfg.LoginAuthController)
 	mux.HandleFunc("POST /api/refresh", apiCfg.RefreshTokenController)
