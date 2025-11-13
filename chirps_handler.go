@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -67,11 +68,41 @@ func (cfg *apiConfig) CreateChirpsController(res http.ResponseWriter, req *http.
 }
 
 func (cfg *apiConfig) IndexChirpsController(res http.ResponseWriter, req *http.Request) {
-	allChirps, _ := cfg.DB.AllChirps(req.Context())
+
+	authorID := req.URL.Query().Get("author_id")
+	sortBy := req.URL.Query().Get("sort")
+
+	var allChirps []database.Chirp
+	var err error
+
+	if authorID == "" {
+		allChirps, err = cfg.DB.AllChirps(req.Context())
+	} else {
+		userID, parseErr := uuid.Parse(authorID)
+
+		if parseErr != nil {
+			helpers.RespondWithError(res, http.StatusBadRequest, "invalid user id")
+			return
+		}
+
+		allChirps, err = cfg.DB.ChirpsByUserID(req.Context(), userID)
+	}
+
+	if err != nil {
+		helpers.RespondWithError(res, http.StatusInternalServerError, "error on database")
+		return
+	}
+
 	allChirpsResponse := make([]chirpResponse, len(allChirps))
 
 	for i := range allChirps {
 		allChirpsResponse[i] = mapChirp(allChirps[i])
+	}
+
+	if sortBy == "desc" {
+		sort.Slice(allChirpsResponse, func(i, j int) bool {
+			return allChirpsResponse[i].CreatedAt.After(allChirpsResponse[j].CreatedAt)
+		})
 	}
 
 	helpers.RespondWithJson(res, http.StatusOK, allChirpsResponse)
